@@ -1,0 +1,69 @@
+/*
+  Código para Sensor de Calidad de Aire (MQ-135) y Buzzer
+  Placa: Arduino Mega 2560
+  
+  Descripción:
+  - Lee el valor analógico del sensor MQ-135 en el pin A2.
+  - Si el valor supera un umbral definido, activa un buzzer en el pin 27.
+  - El monitor serial imprime el valor del sensor para ayudarte a calibrar.
+
+  Conexiones:
+  - Sensor MQ-135 VCC -> 5V (Arduino)
+  - Sensor MQ-135 GND -> GND (Arduino)
+  - Sensor MQ-135 AOUT (Analógico) -> Pin A2 (Arduino)
+  
+  - Buzzer (+) (pata larga) -> Pin 27 (Arduino)
+  - Buzzer (-) (pata corta) -> GND (Arduino)
+*/
+
+// --- Definición de Pines ---
+const int pinSensor = A2;  // Pin analógico A2 para el MQ-135
+const int pinBuzzer = 27; // Pin digital 27 para el buzzer
+
+// --- Umbral de Activación ---
+// ¡¡ IMPORTANTE !!
+// Debes ajustar este valor. 400 es solo un ejemplo.
+// Revisa el monitor serial para ver qué valor te da en aire limpio
+// y ajústalo un poco por encima de eso.
+const int umbralGas = 400;
+
+// --- Variables Globales ---
+int valorSensor; // Variable para guardar la lectura del sensor
+
+void setup() {
+  // Configurar los pines
+  pinMode(pinBuzzer, OUTPUT); // El buzzer es una salida
+  // El pin analógico (A2) no necesita pinMode para entrada
+  
+  digitalWrite(pinBuzzer, LOW); // Asegurarse que el buzzer empiece apagado
+
+  // Iniciar el monitor serial para calibración
+  Serial.begin(9600);
+  Serial.println("Iniciando sensor MQ-135...");
+  Serial.println("Deje que el sensor se caliente (aprox. 1 min)...");
+  delay(10000); // Una pequeña espera inicial
+}
+
+void loop() {
+  // --- Leer el sensor ---
+  // Lee el valor del pin A2 (será un número entre 0 y 1023)
+  valorSensor = analogRead(pinSensor);
+  
+  // --- Imprimir el valor para calibración ---
+  Serial.print("Valor del sensor: ");
+  Serial.println(valorSensor);
+
+  // --- Lógica de control ---
+  if (valorSensor > umbralGas) {
+    // Si el valor supera el umbral...
+    Serial.println("¡Nivel de gas ALTO!");
+    digitalWrite(pinBuzzer, HIGH); // Encender el buzzer
+  } else {
+    // Si el valor es normal...
+    Serial.println("Nivel de gas normal.");
+    digitalWrite(pinBuzzer, LOW); // Apagar el buzzer
+  }
+  
+  // Pausa antes de la siguiente lectura
+  delay(500); 
+}
