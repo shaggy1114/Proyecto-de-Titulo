@@ -1,69 +1,113 @@
 /*
-  Código para Sensor de Calidad de Aire (MQ-135) y Buzzer
+  MONITOR DE CALIDAD DE AIRE CON PANTALLA OLED
   Placa: Arduino Mega 2560
   
-  Descripción:
-  - Lee el valor analógico del sensor MQ-135 en el pin A2.
-  - Si el valor supera un umbral definido, activa un buzzer en el pin 27.
-  - El monitor serial imprime el valor del sensor para ayudarte a calibrar.
-
-  Conexiones:
-  - Sensor MQ-135 VCC -> 5V (Arduino)
-  - Sensor MQ-135 GND -> GND (Arduino)
-  - Sensor MQ-135 AOUT (Analógico) -> Pin A2 (Arduino)
-  
-  - Buzzer (+) (pata larga) -> Pin 27 (Arduino)
-  - Buzzer (-) (pata corta) -> GND (Arduino)
+  Funciones:
+  1. Lee sensor MQ-135 (Pin A2).
+  2. Muestra nivel y mensaje de ALERTA en OLED.
+  3. Activa Buzzer (Pin 27) si supera el umbral (Usa tone() para más volumen).
 */
 
-// --- Definición de Pines ---
-const int pinSensor = A2;  // Pin analógico A2 para el MQ-135
-const int pinBuzzer = 27; // Pin digital 27 para el buzzer
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
-// --- Umbral de Activación ---
-// ¡¡ IMPORTANTE !!
-// Debes ajustar este valor. 400 es solo un ejemplo.
-// Revisa el monitor serial para ver qué valor te da en aire limpio
-// y ajústalo un poco por encima de eso.
-const int umbralGas = 400;
+// --- 1. CONFIGURACIÓN PANTALLA ---
+#define ANCHO 128
+#define ALTO 64
+Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 
-// --- Variables Globales ---
-int valorSensor; // Variable para guardar la lectura del sensor
+// --- 2. CONFIGURACIÓN SENSORES ---
+const int pinSensor = A2;   // Entrada del MQ-135
+const int pinBuzzer = 27;   // Salida del Buzzer
+const int pinLedFantasma = 33; // El LED que queremos asegurar apagado
+
+// --- 3. CALIBRACIÓN ---
+// Ajusta esto según tus pruebas (ej. 250, 400, etc.)
+const int umbralGas = 250; 
 
 void setup() {
-  // Configurar los pines
-  pinMode(pinBuzzer, OUTPUT); // El buzzer es una salida
-  // El pin analógico (A2) no necesita pinMode para entrada
-  
-  digitalWrite(pinBuzzer, LOW); // Asegurarse que el buzzer empiece apagado
-
-  // Iniciar el monitor serial para calibración
   Serial.begin(9600);
-  Serial.println("Iniciando sensor MQ-135...");
-  Serial.println("Deje que el sensor se caliente (aprox. 1 min)...");
-  delay(10000); // Una pequeña espera inicial
+
+  // --- INICIAR PANTALLA ---
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+      Serial.println(F("Error Pantalla OLED"));
+      // Continuamos aunque falle la pantalla
+    }
+  }
+  
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.display();
+
+  // --- CONFIGURAR PINES ---
+  pinMode(pinBuzzer, OUTPUT);
+  noTone(pinBuzzer); // Aseguramos silencio al inicio usando noTone
+
+  // CORRECCIÓN: Apagar el Pin 33 explícitamente
+  pinMode(pinLedFantasma, OUTPUT);
+  digitalWrite(pinLedFantasma, LOW); 
+
+  Serial.println("Sensor de Gas Iniciado");
+  delay(2000); // Tiempo para precalentar sensor
 }
 
 void loop() {
-  // --- Leer el sensor ---
-  // Lee el valor del pin A2 (será un número entre 0 y 1023)
-  valorSensor = analogRead(pinSensor);
+  // 1. Leer valor del gas
+  int valorGas = analogRead(pinSensor);
   
-  // --- Imprimir el valor para calibración ---
-  Serial.print("Valor del sensor: ");
-  Serial.println(valorSensor);
+  // 2. Imprimir en Serial (para calibrar)
+  Serial.print("Gas: ");
+  Serial.println(valorGas);
 
-  // --- Lógica de control ---
-  if (valorSensor > umbralGas) {
-    // Si el valor supera el umbral...
-    Serial.println("¡Nivel de gas ALTO!");
-    digitalWrite(pinBuzzer, HIGH); // Encender el buzzer
-  } else {
-    // Si el valor es normal...
-    Serial.println("Nivel de gas normal.");
-    digitalWrite(pinBuzzer, LOW); // Apagar el buzzer
-  }
+  // 3. PREPARAR PANTALLA
+  display.clearDisplay();
   
-  // Pausa antes de la siguiente lectura
-  delay(500); 
+  // Título
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("--- MONITOR GAS ---");
+
+  // Mostrar Valor Numérico
+  display.setTextSize(2);
+  display.setCursor(0, 20);
+  display.print("Nivel: ");
+  display.println(valorGas);
+
+  // 4. LÓGICA DE ALARMA Y MENSAJE
+  if (valorGas > umbralGas) {
+    // --- CASO PELIGRO (> 250) ---
+    
+    // Activar Sonido
+    // Usamos tone() con 1000Hz o 2000Hz para maximizar el volumen en buzzers pasivos
+    tone(pinBuzzer, 1000); 
+    
+    // Mostrar Alerta en Pantalla
+    display.setCursor(0, 45);
+    display.setTextSize(2);
+    display.println("Nivel Alto"); // TEXTO MODIFICADO
+    
+    // Dibujar un recuadro de advertencia (estético)
+    display.drawRect(0, 42, 128, 22, WHITE);
+    
+  } else {
+    // --- CASO NORMAL (<= 250) ---
+    
+    // Apagar Sonido
+    noTone(pinBuzzer); // Usamos noTone para detener el sonido
+    
+    // Mostrar Estado Normal
+    display.setCursor(0, 45);
+    display.setTextSize(2); // Aumentado a tamaño 2 para mejor lectura
+    display.println("Nivel Bajo"); // TEXTO MODIFICADO
+  }
+
+  // 5. ACTUALIZAR PANTALLA
+  display.display();
+  
+  // 6. Volver a asegurar que el LED 33 esté apagado (por seguridad)
+  digitalWrite(pinLedFantasma, LOW);
+
+  delay(500);
 }
