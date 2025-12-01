@@ -8,7 +8,7 @@
 
   Librerias: 
   -DHT sensor library de Adafruit
-  Adafruit SDD1306
+  -Adafruit SDD1306
 */
 
 #include <Wire.h>
