@@ -5,10 +5,10 @@
   LÓGICA:
   - Si Temperatura >= 23.0 C -> ENCIENDE LED (Pin 33).
   - Pantalla OLED: Muestra Temp (con decimal) y Humedad relativa.
-
+  
   Librerias: 
   -DHT sensor library de Adafruit
-  -Adafruit SDD1306
+  -Adafruit SSD1306
 */
 
 #include <Wire.h>
@@ -26,15 +26,19 @@ Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 const int trigPin = 29;
 const int echoPin = 31;
 
-// LED de Alerta (Pin 33 según manual para señalización visual)
+// LED de Alerta (Pin 33 - Temperatura)
 const int ledPin = 33; 
+
+// LED Fantasma (Pin 41 - Movimiento)
+// Lo definimos para poder apagarlo
+const int ledFantasma = 41; 
 
 // --- 3. CONFIGURACIÓN DHT11 ---
 #define DHTPIN 23     
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-// Variables Globales (Aquí definimos los nombres para que no den error)
+// Variables Globales
 float temperatura = 0;
 float humedad = 0;
 
@@ -55,7 +59,13 @@ void setup() {
   // Configurar Pines
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  
   pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW); // Asegurar apagado al inicio
+
+  // --- CORRECCIÓN PIN 41 ---
+  pinMode(ledFantasma, OUTPUT);    // Declaramos el pin 41 como salida
+  digitalWrite(ledFantasma, LOW);  // Lo obligamos a estar APAGADO (Tierra)
 
   // Iniciar Sensor DHT11
   dht.begin();
@@ -66,16 +76,16 @@ void loop() {
   float t = dht.readTemperature();
   float h = dht.readHumidity();
 
-  // Validar lectura para evitar errores NaN (Not a Number)
+  // Validar lectura
   if (!isnan(t)) temperatura = t;
   if (!isnan(h)) humedad = h;
 
-  // --- 2. LÓGICA DE CONTROL DEL LED ---
-  // Encender si es mayor o igual a 25.0 C
+  // --- 2. LÓGICA DE CONTROL DEL LED (Pin 33) ---
+  // Encender si es mayor o igual a 23.0 C
   if (temperatura >= 23.0) {
-    digitalWrite(ledPin, HIGH); // Enciende el LED
+    digitalWrite(ledPin, HIGH); 
   } else {
-    digitalWrite(ledPin, LOW);  // Apaga el LED
+    digitalWrite(ledPin, LOW);  
   }
 
   // --- 3. MOSTRAR EN PANTALLA ---
@@ -100,6 +110,9 @@ void loop() {
   display.println(" % Rh"); 
 
   display.display(); 
+  
+  // Reafirmar el apagado del pin 41 por seguridad en cada ciclo
+  digitalWrite(ledFantasma, LOW);
 
   delay(500);
 }
