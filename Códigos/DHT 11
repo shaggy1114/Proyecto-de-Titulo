@@ -1,0 +1,105 @@
+/*
+  MONITOR: LED CONTROLADO POR TEMPERATURA
+  Placa: Arduino Mega 2560
+  
+  LÓGICA:
+  - Si Temperatura >= 23.0 C -> ENCIENDE LED (Pin 33).
+  - Pantalla OLED: Muestra Temp (con decimal) y Humedad relativa.
+
+  Librerias: 
+  -DHT sensor library de Adafruit
+  Adafruit SDD1306
+*/
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <DHT.h>
+
+// --- 1. CONFIGURACIÓN PANTALLA ---
+#define ANCHO 128
+#define ALTO 64
+Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
+
+// --- 2. CONFIGURACIÓN PINES ---
+// Ultrasonido (Lo dejamos configurado por si está conectado)
+const int trigPin = 29;
+const int echoPin = 31;
+
+// LED de Alerta (Pin 33 según manual para señalización visual)
+const int ledPin = 33; 
+
+// --- 3. CONFIGURACIÓN DHT11 ---
+#define DHTPIN 23     
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Variables Globales (Aquí definimos los nombres para que no den error)
+float temperatura = 0;
+float humedad = 0;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Iniciar Pantalla
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+      Serial.println(F("Error Pantalla"));
+    }
+  }
+  
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.display();
+
+  // Configurar Pines
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+  // Iniciar Sensor DHT11
+  dht.begin();
+}
+
+void loop() {
+  // --- 1. LEER DATOS DE CLIMA ---
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+
+  // Validar lectura para evitar errores NaN (Not a Number)
+  if (!isnan(t)) temperatura = t;
+  if (!isnan(h)) humedad = h;
+
+  // --- 2. LÓGICA DE CONTROL DEL LED ---
+  // Encender si es mayor o igual a 25.0 C
+  if (temperatura >= 23.0) {
+    digitalWrite(ledPin, HIGH); // Enciende el LED
+  } else {
+    digitalWrite(ledPin, LOW);  // Apaga el LED
+  }
+
+  // --- 3. MOSTRAR EN PANTALLA ---
+  display.clearDisplay();
+  
+  // Título
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("- CONTROL TEMPERATURA -");
+
+  // Temperatura (Con 1 decimal)
+  display.setTextSize(2);
+  display.setCursor(0, 20);
+  display.print("T: ");
+  display.print(temperatura, 1); 
+  display.println(" C"); 
+
+  // Humedad
+  display.setCursor(0, 45);
+  display.print("H: ");
+  display.print((int)humedad);
+  display.println(" % Rh"); 
+
+  display.display(); 
+
+  delay(500);
+}
