@@ -20,10 +20,10 @@ Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 // --- 2. CONFIGURACIÓN SENSORES ---
 const int pinSensor = A2;   // Entrada del MQ-135
 const int pinBuzzer = 27;   // Salida del Buzzer
-const int pinLedFantasma = 33; // El LED que queremos asegurar apagado
+const int pinLedFantasma = 33; 
 
 // --- 3. CALIBRACIÓN ---
-// Ajusta esto según tus pruebas (ej. 250, 400, etc.)
+// Ajustar segun lo requerido (ej. 250, 400, etc.)
 const int umbralGas = 250; 
 
 void setup() {
@@ -45,7 +45,7 @@ void setup() {
   pinMode(pinBuzzer, OUTPUT);
   noTone(pinBuzzer); // Aseguramos silencio al inicio usando noTone
 
-  // CORRECCIÓN: Apagar el Pin 33 explícitamente
+  // CORRECCIÓN: e
   pinMode(pinLedFantasma, OUTPUT);
   digitalWrite(pinLedFantasma, LOW); 
 
