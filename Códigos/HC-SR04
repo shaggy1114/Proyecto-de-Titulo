@@ -1,0 +1,131 @@
+/*
+  Monitoreo de distancia con alerta visual (Led)
+  Placa: Arduino Mega 2560
+
+  Lógica:
+  1. Mide distancia en cm.
+  2. Muestra valor y estado en Pantalla OLED.
+  3. Si distancia < 10 cm -> Alerta (LED ON + Pantalla "DETECTADO").
+*/
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// --- 1. CONFIGURACIÓN PANTALLA ---
+#define ANCHO 128
+#define ALTO 64
+Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
+
+// --- 2. Configuración pines ---
+const int trigPin = 29;
+const int echoPin = 31;
+const int ledPin = 33; 
+
+// --- 3. Configuración umbral ---
+const int distanciaUmbral = 10; // 10 cm
+
+// Variables
+long duracion;
+int distancia;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("--- INICIANDO MONITOR DE DISTANCIA ---");
+
+  // Iniciar Pantalla
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+      Serial.println(F("Error Pantalla OLED"));
+    }
+  }
+  
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.display();
+
+  // Configurar Pines
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  
+  // Estado inicial seguro
+  digitalWrite(ledPin, LOW);
+  digitalWrite(trigPin, LOW);
+  
+  delay(1000); 
+}
+
+void loop() {
+  // --- 1. Disparar pulso ---
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // --- 2. Leer eco ---
+  duracion = pulseIn(echoPin, HIGH, 30000); 
+  
+  // --- 3. Lógica de seguridad (SENSOR OFF) ---
+  if (duracion == 0) {
+    Serial.println("ALERTA: Sensor desconectado (0)");
+    
+    digitalWrite(ledPin, LOW); 
+    
+    // Aviso en Pantalla
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("- MONITOR DISTANCIA -");
+    display.setTextSize(2);
+    display.setCursor(0, 25);
+    display.println("ERROR SEN."); // Sensor Error
+    display.setCursor(0, 45);
+    display.setTextSize(1);
+    display.println("Sin Senal/Energia");
+    display.display();
+
+    delay(100); 
+    return; 
+  }
+
+  // --- 4. Calcular distancia---
+  distancia = duracion * 0.01715; 
+  
+  Serial.print("Dist: "); Serial.println(distancia);
+
+  // --- 5. Mostrar pantalla  ---
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("- MONITOR DISTANCIA -");
+
+  // Valor Numérico
+  display.setTextSize(2);
+  display.setCursor(0, 20);
+  display.print(distancia);
+  display.println(" cm");
+
+  // --- 6. Lógica de control ---
+  if (distancia > 0 && distancia < distanciaUmbral) {
+    // CASO: DETECCIÓN CERCANA (< 10cm)
+    digitalWrite(ledPin, HIGH); 
+    
+    display.setCursor(0, 45);
+    display.setTextSize(2);
+    display.println("DETECTADO!"); 
+    display.drawRect(0, 42, 128, 22, WHITE); // Recuadro visual
+    
+  } else {
+    
+    digitalWrite(ledPin, LOW);  
+    
+    display.setCursor(0, 45);
+    display.setTextSize(2);
+    display.println("LIBRE");
+  }
+  
+  display.display();
+  delay(100);
+}
