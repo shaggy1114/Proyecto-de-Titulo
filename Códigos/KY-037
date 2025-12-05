@@ -1,0 +1,113 @@
+/*
+  CONTROL DE SERVO POR SONIDO (VERSIÓN ULTRARRÁPIDA)
+  Placa: Arduino Mega 2560
+  
+  Mejora Crítica:
+  - Se eliminó el "lag" causado por actualizar la pantalla innecesariamente.
+  - La pantalla solo cambia cuando hay un aplauso.
+  - El sensor ahora se lee miles de veces por segundo (respuesta inmediata).
+*/
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Servo.h>
+
+// --- 1. CONFIGURACIÓN PANTALLA ---
+#define ANCHO 128
+#define ALTO 64
+Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
+
+// --- 2. CONFIGURACIÓN PINES ---
+const int pinSonido = 35;        // Salida Digital (Aplausos)
+const int pinServo = 37;         // Servomotor
+
+// --- 3. OBJETOS Y VARIABLES ---
+Servo miServo;
+int anguloActual = 0;      
+bool estadoAbierto = false; 
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("--- INICIANDO CONTROL SERVO ---");
+
+  // Iniciar Pantalla
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+      Serial.println(F("Error Pantalla OLED"));
+    }
+  }
+  
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.display();
+
+  pinMode(pinSonido, INPUT);
+  
+  miServo.attach(pinServo);
+  miServo.write(0); 
+  anguloActual = 0;
+  
+  // Mostrar estado inicial en pantalla una sola vez
+  actualizarPantalla();
+  
+  delay(1000); 
+}
+
+void loop() {
+  // --- 1. LEER SENSOR DIGITAL (AHORA ES MUY RÁPIDO) ---
+  // Al no tener código de pantalla aquí bloqueando,
+  // el Arduino revisa este pin miles de veces por segundo.
+  if (digitalRead(pinSonido) == HIGH) {
+    
+    Serial.println("¡SONIDO DETECTADO!");
+    
+    // Cambiar estado
+    estadoAbierto = !estadoAbierto;
+    
+    // Definir ángulo
+    if (estadoAbierto) {
+      anguloActual = 90; 
+    } else {
+      anguloActual = 0; 
+    }
+    
+    // Mover Servo INMEDIATAMENTE
+    miServo.write(anguloActual);
+    
+    // Actualizar la pantalla con el nuevo estado
+    actualizarPantalla();
+
+    // Pausa para evitar rebotes (eco del aplauso)
+    delay(1000); 
+  }
+  
+  // YA NO HAY CÓDIGO AQUÍ ABAJO QUE RALENTICE EL SISTEMA
+}
+
+// --- FUNCIÓN AUXILIAR PARA DIBUJAR ---
+void actualizarPantalla() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("- CONTROL ACCESO -");
+
+  display.setTextSize(2);
+  display.setCursor(0, 25);
+  display.print("Angulo: ");
+  display.print(anguloActual);
+  display.println((char)247); 
+
+  display.setTextSize(1);
+  display.setCursor(0, 50);
+  
+  if (estadoAbierto) {
+    display.println("Estado: ABIERTO");
+    display.fillRect(100, 45, 15, 15, WHITE); 
+  } else {
+    display.println("Estado: CERRADO");
+    display.drawRect(100, 45, 15, 15, WHITE); 
+  }
+  
+  display.display(); // Esto toma tiempo, pero ahora solo se hace al aplaudir
+}
