@@ -1,14 +1,9 @@
 /*
-  MONITOR: LED CONTROLADO POR TEMPERATURA
+  MONITOR: De temperatura con alerta sonora (BUZZER EN PIN 25)
   Placa: Arduino Mega 2560
   
   LÓGICA:
-  - Si Temperatura >= 23.0 C -> ENCIENDE LED (Pin 33).
-  - Pantalla OLED: Muestra Temp (con decimal) y Humedad relativa.
-  
-  Librerias: 
-  -DHT sensor library de Adafruit
-  -Adafruit SSD1306
+  - Si Temp >= x.0 C -> ALERTA (Buzzer ON).
 */
 
 #include <Wire.h>
@@ -22,15 +17,7 @@
 Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 
 // --- 2. CONFIGURACIÓN PINES ---
-// Ultrasonido (Lo dejamos configurado por si está conectado)
-const int trigPin = 29;
-const int echoPin = 31;
-
-// LED de Alerta (Pin 33 - Temperatura)
-const int ledPin = 33; 
-
-// LED Fantasma (Pin 41 - Movimiento)
-// Lo definimos para poder apagarlo
+const int buzzerPin = 25; 
 const int ledFantasma = 41; 
 
 // --- 3. CONFIGURACIÓN DHT11 ---
@@ -41,6 +28,9 @@ DHT dht(DHTPIN, DHTTYPE);
 // Variables Globales
 float temperatura = 0;
 float humedad = 0;
+
+// UMBRAL
+const float tempUmbral = 27.0;
 
 void setup() {
   Serial.begin(9600);
@@ -57,62 +47,81 @@ void setup() {
   display.display();
 
   // Configurar Pines
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW); // Asegurar apagado al inicio
+  pinMode(buzzerPin, OUTPUT);
+  noTone(buzzerPin); 
 
-  // --- CORRECCIÓN PIN 41 ---
-  pinMode(ledFantasma, OUTPUT);    // Declaramos el pin 41 como salida
-  digitalWrite(ledFantasma, LOW);  // Lo obligamos a estar APAGADO (Tierra)
+  pinMode(ledFantasma, OUTPUT);    
+  digitalWrite(ledFantasma, LOW);  
 
-  // Iniciar Sensor DHT11
   dht.begin();
 }
 
 void loop() {
-  // --- 1. LEER DATOS DE CLIMA ---
+  // --- 1. LEER DATOS ---
   float t = dht.readTemperature();
   float h = dht.readHumidity();
 
-  // Validar lectura
-  if (!isnan(t)) temperatura = t;
-  if (!isnan(h)) humedad = h;
-
-  // --- 2. LÓGICA DE CONTROL DEL LED (Pin 33) ---
-  // Encender si es mayor o igual a 23.0 C
-  if (temperatura >= 23.0) {
-    digitalWrite(ledPin, HIGH); 
-  } else {
-    digitalWrite(ledPin, LOW);  
+  // --- LÓGICA DE SEGURIDAD (DETECTAR CORTE DE ENERGÍA) ---
+  // Si t o h son "NaN" (Not a Number), significa que el sensor está apagado o fallando.
+  if (isnan(t) || isnan(h)) {
+    Serial.println(F("Sensor desconectado o sin energía"));
+    
+    // 1. ¡APAGAR BUZZER OBLIGATORIAMENTE!
+    noTone(buzzerPin); 
+    
+    // 2. Mostrar aviso en pantalla
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("- MONITOR TERMICO -");
+    
+    display.setTextSize(2);
+    display.setCursor(0, 25);
+    display.println("SENSOR OFF"); // Aviso visual
+    
+    display.display();
+    
+    // 3. Salir del loop aquí para no ejecutar la lógica de temperatura vieja
+    delay(500);
+    return; 
   }
 
-  // --- 3. MOSTRAR EN PANTALLA ---
+ //--- 1. Lectura de datos ---
+  temperatura = t;
+  humedad = h;
+
+  // --- 2. Pantalla normal ---
   display.clearDisplay();
-  
-  // Título
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.println("- CONTROL TEMPERATURA -");
+  display.println("- MONITOR TERMICO -");
 
-  // Temperatura (Con 1 decimal)
   display.setTextSize(2);
   display.setCursor(0, 20);
-  display.print("T: ");
-  display.print(temperatura, 1); 
-  display.println(" C"); 
+  display.print("T: "); display.print(temperatura, 1); display.println(" C"); 
 
-  // Humedad
+  display.setTextSize(1);
   display.setCursor(0, 45);
-  display.print("H: ");
-  display.print((int)humedad);
-  display.println(" % Rh"); 
+  display.print("Humedad: "); display.print((int)humedad); display.println("%");
+
+  // --- 3. ALARMA ---
+  if (temperatura >= tempUmbral) {
+    tone(buzzerPin, 2000); 
+    
+    display.setCursor(0, 55);
+    display.setTextSize(1);
+    display.println("Estado: ! ALERTA !"); 
+    display.drawRect(0, 53, 128, 11, WHITE);
+    
+  } else {
+    noTone(buzzerPin);
+    
+    display.setCursor(0, 55);
+    display.setTextSize(1);
+    display.println("Estado: Normal");
+  }
 
   display.display(); 
-  
-  // Reafirmar el apagado del pin 41 por seguridad en cada ciclo
   digitalWrite(ledFantasma, LOW);
-
   delay(500);
 }
