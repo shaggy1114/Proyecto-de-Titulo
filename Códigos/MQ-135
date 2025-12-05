@@ -1,11 +1,10 @@
 /*
-  MONITOR DE CALIDAD DE AIRE CON PANTALLA OLED
+  Monitoreo gas con alerta sonora
   Placa: Arduino Mega 2560
   
   Funciones:
-  1. Lee sensor MQ-135 (Pin A2).
-  2. Muestra nivel y mensaje de ALERTA en OLED.
-  3. Activa Buzzer (Pin 27) si supera el umbral (Usa tone() para más volumen).
+  1. Lee MQ-135.
+  2. Si valor > x -> ALERTA (Buzzer suena).
 */
 
 #include <Wire.h>
@@ -18,22 +17,20 @@
 Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 
 // --- 2. CONFIGURACIÓN SENSORES ---
-const int pinSensor = A2;   // Entrada del MQ-135
-const int pinBuzzer = 27;   // Salida del Buzzer
+const int pinSensor = A2;   // MQ-135
+const int pinBuzzer = 27;   // Buzzer
 const int pinLedFantasma = 33; 
 
 // --- 3. CALIBRACIÓN ---
-// Ajustar segun lo requerido (ej. 250, 400, etc.)
-const int umbralGas = 250; 
+const int umbralGas = 400; 
 
 void setup() {
   Serial.begin(9600);
 
-  // --- INICIAR PANTALLA ---
+  // Iniciar Pantalla
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
       Serial.println(F("Error Pantalla OLED"));
-      // Continuamos aunque falle la pantalla
     }
   }
   
@@ -41,27 +38,48 @@ void setup() {
   display.setTextColor(WHITE);
   display.display();
 
-  // --- CONFIGURAR PINES ---
+  // Configurar Pines
   pinMode(pinBuzzer, OUTPUT);
-  noTone(pinBuzzer); // Aseguramos silencio al inicio usando noTone
+  noTone(pinBuzzer); 
 
-  // CORRECCIÓN: e
   pinMode(pinLedFantasma, OUTPUT);
   digitalWrite(pinLedFantasma, LOW); 
 
-  Serial.println("Sensor de Gas Iniciado");
-  delay(2000); // Tiempo para precalentar sensor
+  Serial.println("Sistema Iniciado");
+  delay(2000); 
 }
 
 void loop() {
   // 1. Leer valor del gas
   int valorGas = analogRead(pinSensor);
   
-  // 2. Imprimir en Serial (para calibrar)
-  Serial.print("Gas: ");
-  Serial.println(valorGas);
+  Serial.print("Gas: "); Serial.println(valorGas);
 
-  // 3. PREPARAR PANTALLA
+  // --- LÓGICA DE SEGURIDAD (SENSOR OFF) ---
+  // Un MQ-135 funcionando, incluso en aire limpio, suele marcar entre 30 y 100.
+  // Si marca menos de 10 (casi 0), es porque está apagado o desconectado.
+  if (valorGas < 10) {
+    // ¡APAGADO DE EMERGENCIA!
+    noTone(pinBuzzer); 
+    
+    // Aviso en Pantalla
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("--- MONITOR GAS ---");
+    
+    display.setTextSize(2);
+    display.setCursor(0, 25);
+    display.println("SENSOR OFF"); 
+    
+    display.display();
+    
+    delay(500);
+    return; // Salimos del loop para no ejecutar nada más
+  }
+
+  // --- Si el sensor esta encendido, sigue el loop ---
+
   display.clearDisplay();
   
   // Título
@@ -69,44 +87,32 @@ void loop() {
   display.setCursor(0, 0);
   display.println("--- MONITOR GAS ---");
 
-  // Mostrar Valor Numérico
+  // Valor
   display.setTextSize(2);
   display.setCursor(0, 20);
   display.print("Nivel: ");
   display.println(valorGas);
 
-  // 4. LÓGICA DE ALARMA Y MENSAJE
+  // Lógica de Alarma
   if (valorGas > umbralGas) {
-    // --- CASO PELIGRO (> 250) ---
+    // --- PELIGRO ---
+    tone(pinBuzzer, 1000); // Sonido Fuerte
     
-    // Activar Sonido
-    // Usamos tone() con 1000Hz o 2000Hz para maximizar el volumen en buzzers pasivos
-    tone(pinBuzzer, 1000); 
-    
-    // Mostrar Alerta en Pantalla
     display.setCursor(0, 45);
     display.setTextSize(2);
-    display.println("Nivel Alto"); // TEXTO MODIFICADO
-    
-    // Dibujar un recuadro de advertencia (estético)
+    display.println("Nivel Alto");
     display.drawRect(0, 42, 128, 22, WHITE);
     
   } else {
-    // --- CASO NORMAL (<= 250) ---
+    // --- NORMAL ---
+    noTone(pinBuzzer);
     
-    // Apagar Sonido
-    noTone(pinBuzzer); // Usamos noTone para detener el sonido
-    
-    // Mostrar Estado Normal
     display.setCursor(0, 45);
-    display.setTextSize(2); // Aumentado a tamaño 2 para mejor lectura
-    display.println("Nivel Bajo"); // TEXTO MODIFICADO
+    display.setTextSize(2);
+    display.println("Nivel Bajo");
   }
 
-  // 5. ACTUALIZAR PANTALLA
   display.display();
-  
-  // 6. Volver a asegurar que el LED 33 esté apagado (por seguridad)
   digitalWrite(pinLedFantasma, LOW);
 
   delay(500);
