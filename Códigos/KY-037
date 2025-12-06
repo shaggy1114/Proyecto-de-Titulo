@@ -3,7 +3,6 @@
   Placa: Arduino Mega 2560
   
   Mejora Crítica:
-  - Se eliminó el "lag" causado por actualizar la pantalla innecesariamente.
   - La pantalla solo cambia cuando hay un aplauso.
   - El sensor ahora se lee miles de veces por segundo (respuesta inmediata).
 */
