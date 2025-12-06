@@ -1,5 +1,5 @@
 # Proyecto-de-Titulo
-¡Bienvenido a la sección de soporte técnico de Electrónica Para Todos! 
+¡Bienvenido a la sección de soporte técnico de INA-Start! 
 
 Nuestra misión es simplificar la electrónica y ayudarte a construir tus proyectos con confianza.  
 
