@@ -1,1 +1,108 @@
+/*
+  Control de movimiento PIR, con señal visual (LED)
+  Placa: Arduino Mega 2560
 
+  Lógica de Seguridad:
+  - Si el sensor detecta movimiento -> LED ENCENDIDO.
+  - Si no hay movimiento O si se corta la energía del sensor -> LED APAGADO.
+*/
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// --- 1. CONFIGURACIÓN PANTALLA ---
+#define ANCHO 128
+#define ALTO 64
+Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
+
+// --- 2. CONFIGURACIÓN PINES ---
+const int pirPin = 39;  // Entrada del Sensor
+const int ledPin = 41;  // Salida del LED
+const int ledFantasma = 33; 
+
+// --- 3. VARIABLES ---
+int estadoPIR = 0;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("--- INICIANDO SISTEMA PIR ---");
+
+  // Iniciar Pantalla
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+      Serial.println(F("Error Pantalla OLED"));
+    }
+  }
+  
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.display();
+
+  // Configurar Pines
+  pinMode(pirPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  
+  // Estado inicial seguro (Apagado)
+  digitalWrite(ledPin, LOW);
+  
+  pinMode(ledFantasma, OUTPUT);   
+  digitalWrite(ledFantasma, LOW); // Forzar a 0V
+  
+  Serial.println("Calibrando sensor (espera unos segundos)...");
+  delay(2000); // Tiempo para que el PIR se estabilice al arrancar
+}
+
+void loop() {
+  digitalWrite(ledFantasma, LOW);
+
+  // 1. LEER SENSOR
+  estadoPIR = digitalRead(pirPin);
+  
+  // 2. PREPARAR PANTALLA
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("- MONITOR MOVIMIENTO -");
+
+  // 3. LÓGICA DE CONTROL 
+  if (estadoPIR == HIGH) {
+    // --- CASO: MOVIMIENTO DETECTADO ---
+    Serial.println("Movimiento Detectado!");
+    
+    // Encender LED
+    digitalWrite(ledPin, HIGH);
+    
+    // Mostrar en Pantalla
+    display.setCursor(0, 30);
+    display.setTextSize(2);
+    display.println("! ALERTA !");
+    display.setTextSize(1);
+    display.setCursor(0, 55);
+    display.println("Presencia Detectada");
+    
+    // Dibujar marco visual
+    display.drawRect(0, 25, 128, 25, WHITE);
+    
+  } else {
+    // --- CASO: NO HAY MOVIMIENTO O SENSOR APAGADO ---
+    // Si cortas la energía, el pin lee LOW (0), entrando aquí automáticamente.
+    
+    // Apagar LED (Seguridad)
+    digitalWrite(ledPin, LOW);
+    
+    // Mostrar en Pantalla
+    display.setCursor(0, 30);
+    display.setTextSize(2);
+    display.println("Vigilando...");
+    display.setTextSize(1);
+    display.setCursor(0, 55);
+    display.println("Zona Segura");
+  }
+
+  // 4. ACTUALIZAR
+  display.display();
+  
+  // Pequeña pausa para estabilidad
+  delay(100);
+}
