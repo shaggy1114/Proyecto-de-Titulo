@@ -1,7 +1,7 @@
 /*
   MONITOR: De temperatura con alerta sonora (BUZZER EN PIN 25)
   Placa: Arduino Mega 2560
-  
+   
   LÓGICA:
   - Si Temp >= x.0 C -> ALERTA (Buzzer ON).
 */
@@ -18,10 +18,12 @@ Adafruit_SSD1306 display(ANCHO, ALTO, &Wire, -1);
 
 // --- 2. CONFIGURACIÓN PINES ---
 const int buzzerPin = 25; 
-const int ledFantasma = 41; 
+
+const int ledFantasma41 = 41; 
+const int ledFantasma33 = 33; 
 
 // --- 3. CONFIGURACIÓN DHT11 ---
-#define DHTPIN 23     
+#define DHTPIN 23      
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -41,7 +43,7 @@ void setup() {
       Serial.println(F("Error Pantalla"));
     }
   }
-  
+   
   display.clearDisplay();
   display.setTextColor(WHITE);
   display.display();
@@ -50,26 +52,29 @@ void setup() {
   pinMode(buzzerPin, OUTPUT);
   noTone(buzzerPin); 
 
-  pinMode(ledFantasma, OUTPUT);    
-  digitalWrite(ledFantasma, LOW);  
+  pinMode(ledFantasma41, OUTPUT);     
+  digitalWrite(ledFantasma41, LOW);   
+
+  pinMode(ledFantasma33, OUTPUT);     
+  digitalWrite(ledFantasma33, LOW);   
 
   dht.begin();
 }
 
 void loop() {
+  digitalWrite(ledFantasma41, LOW);
+  digitalWrite(ledFantasma33, LOW);
+
   // --- 1. LEER DATOS ---
   float t = dht.readTemperature();
   float h = dht.readHumidity();
 
   // --- LÓGICA DE SEGURIDAD (DETECTAR CORTE DE ENERGÍA) ---
-  // Si t o h son "NaN" (Not a Number), significa que el sensor está apagado o fallando.
   if (isnan(t) || isnan(h)) {
     Serial.println(F("Sensor desconectado o sin energía"));
     
-    // 1. ¡APAGAR BUZZER OBLIGATORIAMENTE!
     noTone(buzzerPin); 
     
-    // 2. Mostrar aviso en pantalla
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(0, 0);
@@ -77,20 +82,19 @@ void loop() {
     
     display.setTextSize(2);
     display.setCursor(0, 25);
-    display.println("SENSOR OFF"); // Aviso visual
+    display.println("SENSOR OFF"); 
     
     display.display();
     
-    // 3. Salir del loop aquí para no ejecutar la lógica de temperatura vieja
     delay(500);
     return; 
   }
 
- //--- 1. Lectura de datos ---
+  // Asignar valores válidos
   temperatura = t;
   humedad = h;
 
-  // --- 2. Pantalla normal ---
+  // --- 2. PANTALLA NORMAL ---
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
@@ -114,7 +118,7 @@ void loop() {
     display.drawRect(0, 53, 128, 11, WHITE);
     
   } else {
-    noTone(buzzerPin);
+    noTone(buzzerPin); 
     
     display.setCursor(0, 55);
     display.setTextSize(1);
@@ -122,6 +126,5 @@ void loop() {
   }
 
   display.display(); 
-  digitalWrite(ledFantasma, LOW);
-  delay(500);
+  delay(500);
 }
